@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -efuxo pipefail
+
+if ! [[ -e build ]]; then
+    mkdir build
+    echo '/*' > build/.gitignore
+fi
+
+export CARGO_TARGET_DIR=build/cargo
+
+cargo build
+cargo test
+cargo doc

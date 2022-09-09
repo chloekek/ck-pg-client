@@ -1,0 +1,12 @@
+[package]
+name = "ck-pg-client"
+version = "0.0.0"
+edition = "2021"
+license = "LGPL-3.0-only"
+
+[dependencies]
+thiserror.workspace = true
+
+[dev-dependencies]
+scopeguard.workspace = true
+tempfile.workspace = true

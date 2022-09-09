@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "ck-pg-client",
+]
+
+[workspace.dependencies]
+scopeguard = { version = "^1.1.0" }
+tempfile = { version = "^3.3.0" }
+thiserror = { version = "^1.0.34" }
