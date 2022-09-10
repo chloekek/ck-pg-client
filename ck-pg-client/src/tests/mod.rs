@@ -3,7 +3,7 @@
 use {
     crate::{
         connectivity::{DEFAULT_PORT, unix_socket_path},
-        protocol::read_backend_message,
+        protocol::{BackendMessage, read_backend_message},
     },
     self::with_cluster::*,
     std::{io::Write, os::unix::net::UnixStream},
@@ -28,11 +28,34 @@ fn example()
         ];
         socket.write_all(&message).unwrap();
 
-        let mut message = Vec::new();
-        read_backend_message(&mut socket, &mut message).unwrap();
-        println!("{message:?}");
+        loop {
+            let mut message = Vec::new();
+            read_backend_message(&mut socket, &mut message).unwrap();
+            let message = BackendMessage::parse(&message);
+            println!("{message:?}");
+            if matches!(message, Some(BackendMessage::ReadyForQuery{..})) {
+                break;
+            }
+        }
 
-        panic!();
+        let message = [
+            b'Q',
+            0, 0, 0, 13,
+            b'S', b'E', b'L', b'E', b'C', b'T', b' ', b'1', 0,
+        ];
+        socket.write_all(&message).unwrap();
+
+        loop {
+            let mut message = Vec::new();
+            read_backend_message(&mut socket, &mut message).unwrap();
+            let message = BackendMessage::parse(&message);
+            println!("{message:?}");
+            if matches!(message, Some(BackendMessage::ReadyForQuery{..})) {
+                break;
+            }
+        }
+
+        // panic!();
 
     });
 }

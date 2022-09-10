@@ -45,9 +45,10 @@ fn read_exact<R>(r: &mut R, buf: &mut Vec<u8>, size: u32) -> io::Result<()>
 ///
 /// Message lengths are always at least 4,
 /// because they include the length field itself.
+#[cold]
 fn make_length_error() -> io::Error
 {
-    let message = "PostgreSQL backend message length is too short";
+    let message = "PostgreSQL backend message length is too small";
     io::Error::new(io::ErrorKind::Other, message)
 }
 
