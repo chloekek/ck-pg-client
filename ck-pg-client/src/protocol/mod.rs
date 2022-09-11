@@ -8,7 +8,7 @@
 //! Optimal serialization of frontend messages depends on the interface
 //! behind which it happens, so there is no uniform interface for doing that.
 //!
-//! [spec]: https://www.postgresql.org/docs/current/protocol.html
+#![doc = crate::pgdoc::frontend_backend_protocol!("spec")]
 
 pub use self::{
     backend_message::*,
