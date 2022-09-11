@@ -31,7 +31,7 @@ pub enum InitiateSslError
 /// a person-in-the-middle attack, a malfunctioning connection,
 /// or a version of PostgreSQL that predates SSL support).
 ///
-/// [`start_up`]: `super::start_up`
+/// [`start_up`]: `super::start_up()`
 /// [`cancel_request`]: `super::cancel_request`
 #[doc = crate::pgdoc::ssl_session_encryption!("spec")]
 pub fn initiate_ssl<S>(stream: &mut S) -> Result<(), InitiateSslError>

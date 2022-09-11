@@ -12,8 +12,8 @@
 
 pub use self::{
     backend_message::*,
-    read_backend_message::*,
+    receiver::*,
 };
 
 mod backend_message;
-mod read_backend_message;
+mod receiver;

@@ -1,4 +1,60 @@
-use std::io::{self, Read};
+use {
+    super::{BackendMessage, ErrorNoticeFieldArray},
+    std::io::{self, Read},
+};
+
+/// Utility for receiving backend messages.
+///
+/// The receiver contains a buffer for reading backend messages into.
+/// This buffer is reused across receives, reducing the number of allocations.
+///
+/// The receiver also contains a function called on notice response messages.
+/// When a notice response is received, the function is called.
+/// The receive is then retried until the message isn't a notice response.
+/// This saves the caller from worrying about notice responses.
+pub struct Receiver
+{
+    buf: Vec<u8>,
+    on_notice: Box<dyn FnMut(ErrorNoticeFieldArray) + Send>,
+}
+
+impl Receiver
+{
+    /// Create a receiver with a notice handler.
+    pub fn new<F>(on_notice: F) -> Self
+        where F: 'static + FnMut(ErrorNoticeFieldArray) + Send
+    {
+        Self{buf: Vec::new(), on_notice: Box::new(on_notice)}
+    }
+
+    /// Synchronously read and parse a backend message from a stream.
+    ///
+    /// If the message cannot be parsed, an error is returned.
+    pub fn receive<'a, R>(&'a mut self, r: &mut R)
+        -> io::Result<BackendMessage<'a>>
+        where R: Read
+    {
+        let buf = &mut self.buf;
+        loop {
+            read_backend_message(r, buf)?;
+            // We have to duplicate the parse in both branches because of [1].
+            // Once Polonius arrives, we can move the parse out of the `if`
+            // and replace `unreachable!()` with `break Ok(message);`.
+            // [1]: https://github.com/rust-lang/rust/issues/54663
+            if buf.starts_with(b"N") {
+                let message = BackendMessage::parse(buf)
+                    .ok_or_else(make_parse_error)?;
+                if let BackendMessage::NoticeResponse{fields} = message {
+                    (self.on_notice)(fields);
+                } else {
+                    unreachable!();
+                }
+            } else {
+                break BackendMessage::parse(buf).ok_or_else(make_parse_error);
+            }
+        }
+    }
+}
 
 /// Synchronously read a backend message from a stream.
 ///
@@ -39,6 +95,14 @@ fn read_exact<R>(r: &mut R, buf: &mut Vec<u8>, size: u32) -> io::Result<()>
     } else {
         Ok(())
     }
+}
+
+/// Construct an error about being unable to parse the message.
+#[cold]
+fn make_parse_error() -> io::Error
+{
+    let message = "PostgreSQL backend message cannot be parsed";
+    io::Error::new(io::ErrorKind::Other, message)
 }
 
 /// Construct an error about the message length being too short.

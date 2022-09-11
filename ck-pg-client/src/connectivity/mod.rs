@@ -1,11 +1,12 @@
 //! Connecting to PostgreSQL databases.
 
-pub use self::{conventions::*, ssl::*};
+pub use self::{conventions::*, initiate_ssl::*, start_up::*};
 
 use std::io;
 
 mod conventions;
-mod ssl;
+mod initiate_ssl;
+mod start_up;
 
 /// Initiate GSSAPI session encryption given a stream.
 ///
@@ -17,17 +18,6 @@ pub fn initiate_gssapi<S>(stream: &mut S, todo: !) -> io::Result<()>
 {
     let _ = stream;
     todo
-}
-
-/// Initiate a database connection given a stream.
-///
-/// This function will perform the [_Start-up_][spec] flow.
-/// No data must be sent on the stream prior to calling this function.
-///
-#[doc = crate::pgdoc::start_up!("spec")]
-pub fn start_up<S>(stream: &mut S) -> io::Result<()>
-{
-    todo!()
 }
 
 /// Submit a cancel request given a stream.

@@ -1,7 +1,15 @@
 #![cfg(test)]
 
 use {
-    crate::connectivity::{InitiateSslError, initiate_ssl, start_up},
+    crate::{
+        connectivity::{
+            Authenticator,
+            InitiateSslError,
+            initiate_ssl,
+            start_up,
+        },
+        protocol::Receiver,
+    },
     self::with_cluster::{WithCluster, with_cluster},
     std::{
         assert_matches::assert_matches,
@@ -13,11 +21,19 @@ use {
 mod rustls_util;
 mod with_cluster;
 
+pub struct NoAuthentication;
+
+impl Authenticator for NoAuthentication
+{
+}
+
 #[test]
 fn initiate_ssl_success()
 {
     let options = WithCluster{enable_ssl: true};
     with_cluster(options, |_sockets_dir, port| {
+
+        let mut receiver = Receiver::new(|fields| println!("{fields:?}"));
 
         let mut stream = TcpStream::connect(("localhost", port)).unwrap();
         initiate_ssl(&mut stream).unwrap();
@@ -25,7 +41,15 @@ fn initiate_ssl_success()
         let mut rustls = rustls_util::create_client_connection();
         let mut stream = rustls::Stream::new(&mut rustls, &mut stream);
 
-        start_up(&mut stream).unwrap();
+        start_up(
+            &mut receiver,
+            &mut stream,
+            [
+                ("user", "postgres"),
+                ("database", "postgres"),
+            ],
+            &NoAuthentication,
+        ).unwrap();
 
     });
 }

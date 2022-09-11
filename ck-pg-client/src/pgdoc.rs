@@ -23,5 +23,6 @@ pgdoc!(canceling_requests_in_progress, "/protocol-flow.html#id-1.10.5.7.3");
 pgdoc!(frontend_backend_protocol, "/protocol.html");
 pgdoc!(gssapi_session_encryption, "/protocol-flow.html#id-1.10.5.7.13");
 pgdoc!(guc_unix_socket_directories, "/runtime-config-connection.html#GUC-UNIX-SOCKET-DIRECTORIES");
+pgdoc!(password_authentication, "/auth-password.html");
 pgdoc!(ssl_session_encryption, "/protocol-flow.html#id-1.10.5.7.12");
 pgdoc!(start_up, "/protocol-flow.html#id-1.10.5.7.3");
