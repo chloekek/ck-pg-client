@@ -6,6 +6,7 @@
 #![feature(cstr_from_bytes_until_nul)]
 #![feature(never_type)]
 
+#![cfg_attr(test, feature(assert_matches))]
 #![cfg_attr(test, feature(exit_status_error))]
 
 #![warn(missing_docs)]

@@ -1,61 +1,51 @@
 #![cfg(test)]
 
 use {
-    crate::{
-        connectivity::{DEFAULT_PORT, unix_socket_path},
-        protocol::{BackendMessage, read_backend_message},
+    crate::connectivity::{InitiateSslError, initiate_ssl, start_up},
+    self::with_cluster::{WithCluster, with_cluster},
+    std::{
+        assert_matches::assert_matches,
+        collections::VecDeque,
+        net::TcpStream,
     },
-    self::with_cluster::*,
-    std::{io::Write, os::unix::net::UnixStream},
 };
 
+mod rustls_util;
 mod with_cluster;
 
 #[test]
-fn example()
+fn initiate_ssl_success()
 {
-    with_cluster(|sockets_dir| {
+    let options = WithCluster{enable_ssl: true};
+    with_cluster(options, |_sockets_dir, port| {
 
-        let socket_path = unix_socket_path(sockets_dir, DEFAULT_PORT);
-        let mut socket = UnixStream::connect(socket_path).unwrap();
+        let mut stream = TcpStream::connect(("localhost", port)).unwrap();
+        initiate_ssl(&mut stream).unwrap();
 
-        let message = [
-            0, 0, 0, 23,  // Length.
-            0, 3, 0, 0,   // Protocol version.
-            b'u', b's', b'e', b'r', 0,
-            b'p', b'o', b's', b't', b'g', b'r', b'e', b's', 0,
-            0,
-        ];
-        socket.write_all(&message).unwrap();
+        let mut rustls = rustls_util::create_client_connection();
+        let mut stream = rustls::Stream::new(&mut rustls, &mut stream);
 
-        loop {
-            let mut message = Vec::new();
-            read_backend_message(&mut socket, &mut message).unwrap();
-            let message = BackendMessage::parse(&message);
-            println!("{message:?}");
-            if matches!(message, Some(BackendMessage::ReadyForQuery{..})) {
-                break;
-            }
-        }
-
-        let message = [
-            b'Q',
-            0, 0, 0, 13,
-            b'S', b'E', b'L', b'E', b'C', b'T', b' ', b'1', 0,
-        ];
-        socket.write_all(&message).unwrap();
-
-        loop {
-            let mut message = Vec::new();
-            read_backend_message(&mut socket, &mut message).unwrap();
-            let message = BackendMessage::parse(&message);
-            println!("{message:?}");
-            if matches!(message, Some(BackendMessage::ReadyForQuery{..})) {
-                break;
-            }
-        }
-
-        // panic!();
+        start_up(&mut stream).unwrap();
 
     });
+}
+
+#[test]
+fn initiate_ssl_server_unwilling()
+{
+    let options = WithCluster{enable_ssl: false};
+    with_cluster(options, |_sockets_dir, port| {
+        let mut stream = TcpStream::connect(("localhost", port)).unwrap();
+        let error = initiate_ssl(&mut stream).unwrap_err();
+        assert_matches!(error, InitiateSslError::ServerUnwilling);
+    });
+}
+
+#[test]
+fn initiate_ssl_received_gibberish()
+{
+    let mut stream = VecDeque::from(*b"XYZ");
+    let result = initiate_ssl(&mut stream).unwrap_err();
+    assert_matches!(result, InitiateSslError::ReceivedGibberish(b'X'));
+    assert_eq!(stream, b"YZ\0\0\0\x08\x04\xD2\x16\x2F");
 }

@@ -8,5 +8,6 @@ license = "LGPL-3.0-only"
 thiserror.workspace = true
 
 [dev-dependencies]
+rustls.workspace = true
 scopeguard.workspace = true
 tempfile.workspace = true

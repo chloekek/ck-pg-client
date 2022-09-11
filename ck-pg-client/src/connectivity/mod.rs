@@ -1,48 +1,43 @@
 //! Connecting to PostgreSQL databases.
 
-pub use self::conventions::*;
+pub use self::{conventions::*, ssl::*};
 
 use std::io;
 
 mod conventions;
+mod ssl;
 
-/// Initiate SSL session encryption given a socket.
+/// Initiate GSSAPI session encryption given a stream.
 ///
-/// The socket must already be connected to the database cluster.
-/// This function will perform the [_SSL Session Encryption_][spec] flow.
-/// No data must be sent on the socket prior to calling this function.
-///
-#[doc = crate::pgdoc::ssl_session_encryption!("spec")]
-pub fn initiate_ssl<S>(socket: &mut S, todo: !) -> io::Result<()>
-{
-    let _ = socket;
-    todo
-}
-
-/// Initiate GSSAPI session encryption given a socket.
-///
-/// The socket must already be connected to the database cluster.
 /// This function will perform the [_GSSAPI Session Encryption_][spec] flow.
-/// No data must be sent on the socket prior to calling this function.
+/// No data must be sent on the stream prior to calling this function.
 ///
 #[doc = crate::pgdoc::gssapi_session_encryption!("spec")]
-pub fn initiate_gssapi<S>(socket: &mut S, todo: !) -> io::Result<()>
+pub fn initiate_gssapi<S>(stream: &mut S, todo: !) -> io::Result<()>
 {
-    let _ = socket;
+    let _ = stream;
     todo
 }
 
-/// Initiate a database connection given a socket.
+/// Initiate a database connection given a stream.
 ///
-/// The socket must already be connected to the database cluster.
-/// This function will perform the _Start-up_ flow.
-/// No data must be sent on the socket prior to calling this function,
-/// except for possible [SSL] or [GSSAPI] session encryption initiation
-/// (in which case `S` must implement said encryption protocol).
+/// This function will perform the [_Start-up_][spec] flow.
+/// No data must be sent on the stream prior to calling this function.
 ///
-/// [SSL]: `initiate_ssl`
-/// [GSSAPI]: `initiate_gssapi`
-pub fn start_up<S>(socket: &mut S) -> io::Result<()>
+#[doc = crate::pgdoc::start_up!("spec")]
+pub fn start_up<S>(stream: &mut S) -> io::Result<()>
 {
     todo!()
+}
+
+/// Submit a cancel request given a stream.
+///
+/// This function will perform the [_Canceling Requests in Progress_][s] flow.
+/// No data must be sent on the stream prior to calling this function.
+///
+#[doc = crate::pgdoc::canceling_requests_in_progress!("s")]
+pub fn cancel_request<S>(stream: &mut S, todo: !) -> io::Result<()>
+{
+    let _ = stream;
+    todo
 }
