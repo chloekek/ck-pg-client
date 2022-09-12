@@ -1,10 +1,11 @@
 #![cfg(test)]
 
 use {
-    crate::{
-        capabilities::Md5Unavailable,
-        connectivity::{InitiateSslError, initiate_ssl, start_up},
-        protocol::Receiver,
+    crate::protocol::{
+        Receiver,
+        SslSessionEncryptionError,
+        ssl_session_encryption,
+        startup,
     },
     self::with_cluster::{WithCluster, with_cluster},
     std::{
@@ -15,7 +16,7 @@ use {
 };
 
 #[cfg(feature = "rustls")]
-use crate::capabilities::{Ssl, SslRustls};
+use crate::capabilities::{Md5Unavailable, Ssl, SslRustls};
 
 #[cfg(feature = "rustls")]
 mod rustls_util;
@@ -24,7 +25,7 @@ mod with_cluster;
 
 #[cfg(feature = "rustls")]
 #[test]
-fn initiate_ssl_success()
+fn ssl_session_encryption_success()
 {
     let options = WithCluster{enable_ssl: true};
     with_cluster(options, |_sockets_dir, port| {
@@ -32,12 +33,12 @@ fn initiate_ssl_success()
         let mut receiver = Receiver::new(|fields| println!("{fields:?}"));
 
         let mut socket = TcpStream::connect(("localhost", port)).unwrap();
-        initiate_ssl(&mut socket).unwrap();
+        ssl_session_encryption(&mut socket).unwrap();
 
         let ssl = SslRustls{config: rustls_util::rustls_config()};
         let mut stream = ssl.handshake(socket, "localhost").unwrap();
 
-        start_up(
+        startup(
             &mut receiver,
             &mut stream,
             [
@@ -51,21 +52,21 @@ fn initiate_ssl_success()
 }
 
 #[test]
-fn initiate_ssl_server_unwilling()
+fn ssl_session_encryption_server_unwilling()
 {
     let options = WithCluster{enable_ssl: false};
     with_cluster(options, |_sockets_dir, port| {
         let mut stream = TcpStream::connect(("localhost", port)).unwrap();
-        let error = initiate_ssl(&mut stream).unwrap_err();
-        assert_matches!(error, InitiateSslError::ServerUnwilling);
+        let error = ssl_session_encryption(&mut stream).unwrap_err();
+        assert_matches!(error, SslSessionEncryptionError::ServerUnwilling);
     });
 }
 
 #[test]
-fn initiate_ssl_received_gibberish()
+fn ssl_session_encryption_received_gibberish()
 {
     let mut stream = VecDeque::from(*b"XYZ");
-    let result = initiate_ssl(&mut stream).unwrap_err();
-    assert_matches!(result, InitiateSslError::ReceivedGibberish(b'X'));
+    let result = ssl_session_encryption(&mut stream).unwrap_err();
+    assert_matches!(result, SslSessionEncryptionError::ReceivedGibberish(b'X'));
     assert_eq!(stream, b"YZ\0\0\0\x08\x04\xD2\x16\x2F");
 }

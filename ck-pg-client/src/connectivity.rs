@@ -1,3 +1,5 @@
+//! Connecting to PostgreSQL databases.
+
 use std::path::{Path, PathBuf};
 
 /// The port on which PostgreSQL listens by default.

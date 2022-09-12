@@ -1,26 +1,21 @@
 use {
     crate::{capabilities::Md5, protocol::{BackendMessage, Receiver}},
-    std::{
-        borrow::Cow,
-        collections::HashMap,
-        ffi::CString,
-        io::{self, Read, Write},
-    },
+    std::{collections::HashMap, ffi::CString, io::{self, Read, Write}},
     thiserror::Error,
 };
 
 /// Information discovered during the start-up flow.
-pub struct StartUpInfo
+pub struct StartupInfo
 {
     pub parameter_statuses: HashMap<CString, CString>,
     pub backend_process_id: u32,
     pub backend_secret_key: u32,
 }
 
-/// Error returned by [`start_up()`].
+/// Error returned by [`startup()`].
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
-pub enum StartUpError
+pub enum StartupError
 {
     #[error("{0}")]
     Io(#[from] io::Error),
@@ -29,20 +24,19 @@ pub enum StartUpError
     UnexpectedBackendMessage,
 }
 
-/// Initiate a database connection given a stream.
+/// Implementation of the [_Start-up_][spec] flow.
 ///
-/// This function will perform the [_Start-up_][spec] flow.
 /// No data must be sent on the stream prior to calling this function.
 /// The `parameters` argument specifies `StartupMessage` parameters.
 /// The `authenticator` argument is used to solve authentication challenges.
 ///
-#[doc = crate::pgdoc::start_up!("spec")]
-pub fn start_up<S, I, N, V, M>(
+#[doc = crate::pgdoc::startup!("spec")]
+pub fn startup<S, I, N, V, M>(
     receiver: &mut Receiver,
     stream: &mut S,
     parameters: I,
     md5: &M,
-) -> Result<StartUpInfo, StartUpError>
+) -> Result<StartupInfo, StartupError>
     where S: Read + Write
         , I: IntoIterator<Item = (N, V)>
         , N: AsRef<str>
@@ -85,7 +79,7 @@ fn handle_authentication<S, M>(
     receiver: &mut Receiver,
     stream: &mut S,
     md5: &M,
-) -> Result<(), StartUpError>
+) -> Result<(), StartupError>
     where S: Read, M: Md5
 {
     let message = receiver.receive(stream)?;
@@ -97,15 +91,15 @@ fn handle_authentication<S, M>(
         BackendMessage::ErrorResponse{..} =>
             todo!("{message:?}"),
         _ =>
-            Err(StartUpError::UnexpectedBackendMessage),
+            Err(StartupError::UnexpectedBackendMessage),
     }
 }
 
 fn handle_info<S>(receiver: &mut Receiver, stream: &mut S)
-    -> Result<StartUpInfo, StartUpError>
+    -> Result<StartupInfo, StartupError>
     where S: Read
 {
-    let mut info = StartUpInfo{
+    let mut info = StartupInfo{
         parameter_statuses: HashMap::new(),
         backend_process_id: 0,
         backend_secret_key: 0,
@@ -131,7 +125,7 @@ fn handle_info<S>(receiver: &mut Receiver, stream: &mut S)
             BackendMessage::ErrorResponse{..} =>
                 todo!("{message:?}"),
             _ =>
-                return Err(StartUpError::UnexpectedBackendMessage),
+                return Err(StartupError::UnexpectedBackendMessage),
         }
     }
 
