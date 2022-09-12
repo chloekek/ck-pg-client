@@ -5,9 +5,10 @@ edition = "2021"
 license = "LGPL-3.0-only"
 
 [dependencies]
+md5 = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
 thiserror.workspace = true
 
 [dev-dependencies]
-rustls.workspace = true
 scopeguard.workspace = true
 tempfile.workspace = true

@@ -2,7 +2,6 @@ use {
     rustls::{
         Certificate,
         ClientConfig,
-        ClientConnection,
         Error,
         ServerName,
         client::{ServerCertVerified, ServerCertVerifier},
@@ -10,18 +9,16 @@ use {
     std::{sync::Arc, time::SystemTime},
 };
 
-/// Configure a client connection for use in tests.
-pub fn create_client_connection() -> ClientConnection
+/// Create Rustls client configuration.
+pub fn rustls_config() -> Arc<ClientConfig>
 {
     let server_cert_verifier = Arc::new(NoServerCertVerification);
-    let client_config = Arc::new(
+    Arc::new(
         ClientConfig::builder()
         .with_safe_defaults()
         .with_custom_certificate_verifier(server_cert_verifier)
         .with_no_client_auth()
-    );
-    let server_name = "localhost".try_into().unwrap();
-    ClientConnection::new(client_config, server_name).unwrap()
+    )
 }
 
 /// Implementation of [`ServerCertVerifier`] that skips verification.

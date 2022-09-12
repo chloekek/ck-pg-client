@@ -13,6 +13,7 @@
 
 #[macro_use] mod pgdoc;
 
+pub mod capabilities;
 pub mod connectivity;
 pub mod protocol;
 

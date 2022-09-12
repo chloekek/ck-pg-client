@@ -2,12 +2,8 @@
 
 use {
     crate::{
-        connectivity::{
-            Authenticator,
-            InitiateSslError,
-            initiate_ssl,
-            start_up,
-        },
+        capabilities::Md5Unavailable,
+        connectivity::{InitiateSslError, initiate_ssl, start_up},
         protocol::Receiver,
     },
     self::with_cluster::{WithCluster, with_cluster},
@@ -18,15 +14,15 @@ use {
     },
 };
 
+#[cfg(feature = "rustls")]
+use crate::capabilities::{Ssl, SslRustls};
+
+#[cfg(feature = "rustls")]
 mod rustls_util;
+
 mod with_cluster;
 
-pub struct NoAuthentication;
-
-impl Authenticator for NoAuthentication
-{
-}
-
+#[cfg(feature = "rustls")]
 #[test]
 fn initiate_ssl_success()
 {
@@ -35,11 +31,11 @@ fn initiate_ssl_success()
 
         let mut receiver = Receiver::new(|fields| println!("{fields:?}"));
 
-        let mut stream = TcpStream::connect(("localhost", port)).unwrap();
-        initiate_ssl(&mut stream).unwrap();
+        let mut socket = TcpStream::connect(("localhost", port)).unwrap();
+        initiate_ssl(&mut socket).unwrap();
 
-        let mut rustls = rustls_util::create_client_connection();
-        let mut stream = rustls::Stream::new(&mut rustls, &mut stream);
+        let ssl = SslRustls{config: rustls_util::rustls_config()};
+        let mut stream = ssl.handshake(socket, "localhost").unwrap();
 
         start_up(
             &mut receiver,
@@ -48,7 +44,7 @@ fn initiate_ssl_success()
                 ("user", "postgres"),
                 ("database", "postgres"),
             ],
-            &NoAuthentication,
+            &Md5Unavailable,
         ).unwrap();
 
     });

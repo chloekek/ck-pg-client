@@ -1,5 +1,5 @@
 use {
-    crate::protocol::{BackendMessage, Receiver},
+    crate::{capabilities::Md5, protocol::{BackendMessage, Receiver}},
     std::{
         borrow::Cow,
         collections::HashMap,
@@ -37,23 +37,23 @@ pub enum StartUpError
 /// The `authenticator` argument is used to solve authentication challenges.
 ///
 #[doc = crate::pgdoc::start_up!("spec")]
-pub fn start_up<S, I, N, V, A>(
+pub fn start_up<S, I, N, V, M>(
     receiver: &mut Receiver,
     stream: &mut S,
     parameters: I,
-    authenticator: &A,
+    md5: &M,
 ) -> Result<StartUpInfo, StartUpError>
     where S: Read + Write
         , I: IntoIterator<Item = (N, V)>
-        , A: Authenticator
         , N: AsRef<str>
         , V: AsRef<str>
+        , M: Md5
 {
     let startup_message = build_startup_message(parameters);
     stream.write_all(&startup_message)?;
     drop(startup_message);
 
-    handle_authentication(receiver, stream, authenticator)?;
+    handle_authentication(receiver, stream, md5)?;
 
     handle_info(receiver, stream)
 }
@@ -81,12 +81,12 @@ fn build_startup_message<I, N, V>(parameters: I) -> Vec<u8>
     buf
 }
 
-fn handle_authentication<S, A>(
+fn handle_authentication<S, M>(
     receiver: &mut Receiver,
     stream: &mut S,
-    authenticator: &A,
+    md5: &M,
 ) -> Result<(), StartUpError>
-    where S: Read, A: Authenticator
+    where S: Read, M: Md5
 {
     let message = receiver.receive(stream)?;
     match message {
@@ -136,39 +136,4 @@ fn handle_info<S>(receiver: &mut Receiver, stream: &mut S)
     }
 
     Ok(info)
-}
-
-/* -------------------------------------------------------------------------- */
-/*                               Authentication                               */
-/* -------------------------------------------------------------------------- */
-
-pub trait Authenticator
-{
-    /// The password to authenticate with.
-    ///
-    /// If the authenticator wants to support [`scram-sha-256`][spec],
-    /// [`md5`][spec], or [`password`][spec] authentication,
-    /// this method must return the password.
-    ///
-    /// The default implementation returns [`None`].
-    ///
-    #[doc = crate::pgdoc::password_authentication!("spec")]
-    fn password(&self) -> Option<Cow<str>>
-    {
-        None
-    }
-
-    /// MD5 cryptographic hash function.
-    ///
-    /// If the authenticator wants to support [`md5`][spec] authentication,
-    /// this method must return the MD5 hash of the given plaintext.
-    ///
-    /// The default implementation returns [`None`].
-    ///
-    #[doc = crate::pgdoc::password_authentication!("spec")]
-    fn md5(&self, plaintext: &[u8]) -> Option<[u8; 16]>
-    {
-        let _ = plaintext;
-        None
-    }
 }
