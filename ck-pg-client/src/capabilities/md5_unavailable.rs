@@ -5,9 +5,8 @@ pub struct Md5Unavailable;
 
 impl Md5 for Md5Unavailable
 {
-    fn md5(&self, plaintext: &[u8]) -> Option<[u8; 16]>
+    fn md5(&self, _plaintext: &[u8]) -> Option<[u8; 16]>
     {
-        let _ = plaintext;
         None
     }
 }

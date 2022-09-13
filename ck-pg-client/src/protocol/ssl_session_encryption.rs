@@ -1,19 +1,4 @@
-use {std::{io::{self, Read, Write}, slice}, thiserror::Error};
-
-/// Error returned by [`ssl_session_encryption()`].
-#[allow(missing_docs)]
-#[derive(Debug, Error)]
-pub enum SslSessionEncryptionError
-{
-    #[error("{0}")]
-    Io(#[from] io::Error),
-
-    #[error("server is unwilling to encrypt communications using SSL")]
-    ServerUnwilling,
-
-    #[error("received gibberish in response to SSL request: byte {0:x}")]
-    ReceivedGibberish(u8),
-}
+use {crate::{Error, Result}, std::{io::{Read, Write}, slice}};
 
 /// Implementation of the [_SSL Session Encryption_][spec] flow.
 ///
@@ -27,8 +12,7 @@ pub enum SslSessionEncryptionError
 /// or a version of PostgreSQL that predates SSL support).
 ///
 #[doc = crate::pgdoc::ssl_session_encryption!("spec")]
-pub fn ssl_session_encryption<S>(stream: &mut S)
-    -> Result<(), SslSessionEncryptionError>
+pub fn ssl_session_encryption<S>(stream: &mut S) -> Result<()>
     where S: Read + Write
 {
     let ssl_request = [0, 0, 0, 8, 4, 210, 22, 47];
@@ -39,7 +23,7 @@ pub fn ssl_session_encryption<S>(stream: &mut S)
 
     match byte {
         b'S' => Ok(()),
-        b'N' => Err(SslSessionEncryptionError::ServerUnwilling),
-        _    => Err(SslSessionEncryptionError::ReceivedGibberish(byte)),
+        b'N' => Err(Error::SslServerUnwilling),
+        _    => Err(Error::SslRequestGibberish(byte)),
     }
 }

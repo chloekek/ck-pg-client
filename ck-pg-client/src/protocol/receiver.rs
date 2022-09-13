@@ -1,4 +1,5 @@
 use {
+    crate::{Error, Result},
     super::{BackendMessage, ErrorNoticeFieldArray},
     std::io::{self, Read},
 };
@@ -31,7 +32,7 @@ impl Receiver
     ///
     /// If the message cannot be parsed, an error is returned.
     pub fn receive<'a, R>(&'a mut self, r: &mut R)
-        -> io::Result<BackendMessage<'a>>
+        -> Result<BackendMessage<'a>>
         where R: Read
     {
         let buf = &mut self.buf;
@@ -43,14 +44,15 @@ impl Receiver
             // [1]: https://github.com/rust-lang/rust/issues/54663
             if buf.starts_with(b"N") {
                 let message = BackendMessage::parse(buf)
-                    .ok_or_else(make_parse_error)?;
+                    .ok_or(Error::BackendMessageParse)?;
                 if let BackendMessage::NoticeResponse{fields} = message {
                     (self.on_notice)(fields);
                 } else {
                     unreachable!();
                 }
             } else {
-                break BackendMessage::parse(buf).ok_or_else(make_parse_error);
+                break BackendMessage::parse(buf)
+                    .ok_or(Error::BackendMessageParse);
             }
         }
     }
@@ -61,7 +63,7 @@ impl Receiver
 /// The provided buffer is replaced with the entire message.
 /// Reusing the buffer across reads reduces the number of allocations.
 /// If reading fails, the contents of the buffer are unspecified.
-pub fn read_backend_message<R>(r: &mut R, buf: &mut Vec<u8>) -> io::Result<()>
+pub fn read_backend_message<R>(r: &mut R, buf: &mut Vec<u8>) -> Result<()>
     where R: Read
 {
     buf.clear();
@@ -69,7 +71,7 @@ pub fn read_backend_message<R>(r: &mut R, buf: &mut Vec<u8>) -> io::Result<()>
     read_exact(r, buf, 5)?;
 
     let length = u32::from_be_bytes([buf[1], buf[2], buf[3], buf[4]]);
-    let length = length.checked_sub(4).ok_or_else(make_length_error)?;
+    let length = length.checked_sub(4).ok_or(Error::BackendMessageParse)?;
 
     read_exact(r, buf, length)?;
 
@@ -97,29 +99,10 @@ fn read_exact<R>(r: &mut R, buf: &mut Vec<u8>, size: u32) -> io::Result<()>
     }
 }
 
-/// Construct an error about being unable to parse the message.
-#[cold]
-fn make_parse_error() -> io::Error
-{
-    let message = "PostgreSQL backend message cannot be parsed";
-    io::Error::new(io::ErrorKind::Other, message)
-}
-
-/// Construct an error about the message length being too short.
-///
-/// Message lengths are always at least 4,
-/// because they include the length field itself.
-#[cold]
-fn make_length_error() -> io::Error
-{
-    let message = "PostgreSQL backend message length is too small";
-    io::Error::new(io::ErrorKind::Other, message)
-}
-
 #[cfg(test)]
 mod tests
 {
-    use super::*;
+    use {super::*, std::assert_matches::assert_matches};
 
     #[test]
     fn example()
@@ -137,10 +120,7 @@ mod tests
         for i in 0 .. 4 {
             let mut buf = &[b'R', 0, 0, 0, i][..];
             let result = read_backend_message(&mut buf, &mut Vec::new());
-            assert_eq!(
-                result.unwrap_err().to_string(),
-                make_length_error().to_string(),
-            );
+            assert_matches!(result.unwrap_err(), Error::BackendMessageParse);
         }
     }
 
@@ -149,6 +129,9 @@ mod tests
     {
         let mut buf = &[b'R', 0, 0, 0, 12, 0, 0, 0][..];
         let result = read_backend_message(&mut buf, &mut Vec::new());
-        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::UnexpectedEof);
+        assert_matches!(
+            result.unwrap_err(),
+            Error::Io(err) if err.kind() == io::ErrorKind::UnexpectedEof,
+        );
     }
 }

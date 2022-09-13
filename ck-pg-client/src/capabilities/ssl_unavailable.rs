@@ -1,19 +1,17 @@
-use super::Ssl;
+use {crate::{Error, Result}, super::Ssl, thiserror::Error};
 
 /// Implementation of the [`Ssl`] trait that unconditionally fails to handshake.
+#[derive(Debug, Error)]
+#[error("SslUnavailable was used")]
 pub struct SslUnavailable;
 
 impl<Socket> Ssl<Socket> for SslUnavailable
 {
     type Stream = !;
 
-    type Error = SslUnavailable;
-
-    fn handshake(&self, socket: Socket, server_name: &str)
-        -> Result<Self::Stream, Self::Error>
+    fn handshake(&self, _socket: Socket, _server_name: &str)
+        -> Result<Self::Stream>
     {
-        let _ = socket;
-        let _ = server_name;
-        Err(SslUnavailable)
+        Err(Error::SslHandshake(Box::new(SslUnavailable)))
     }
 }

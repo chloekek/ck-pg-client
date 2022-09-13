@@ -1,7 +1,16 @@
 use {
-    crate::{capabilities::Md5, protocol::{BackendMessage, Receiver}},
-    std::{collections::HashMap, ffi::CString, io::{self, Read, Write}},
-    thiserror::Error,
+    crate::{
+        Error,
+        Result,
+        capabilities::Md5,
+        protocol::{
+            BackendMessage,
+            Receiver,
+            write_int32_u32,
+            write_string_slice,
+        },
+    },
+    std::{collections::HashMap, ffi::CString, io::{Read, Write}},
 };
 
 /// Information discovered during the start-up flow.
@@ -12,59 +21,43 @@ pub struct StartupInfo
     pub backend_secret_key: u32,
 }
 
-/// Error returned by [`startup()`].
-#[allow(missing_docs)]
-#[derive(Debug, Error)]
-pub enum StartupError
-{
-    #[error("{0}")]
-    Io(#[from] io::Error),
-
-    #[error("received unexpected backend message")]
-    UnexpectedBackendMessage,
-}
-
 /// Implementation of the [_Start-up_][spec] flow.
 ///
 /// No data must be sent on the stream prior to calling this function.
 /// The `parameters` argument specifies `StartupMessage` parameters.
-/// The `authenticator` argument is used to solve authentication challenges.
 ///
 #[doc = crate::pgdoc::startup!("spec")]
-pub fn startup<S, I, N, V, M>(
+pub fn startup<M, S, I, N, V>(
+    md5: &M,
     receiver: &mut Receiver,
     stream: &mut S,
     parameters: I,
-    md5: &M,
-) -> Result<StartupInfo, StartupError>
-    where S: Read + Write
+) -> Result<StartupInfo>
+    where M: Md5
+        , S: Read + Write
         , I: IntoIterator<Item = (N, V)>
-        , N: AsRef<str>
-        , V: AsRef<str>
-        , M: Md5
+        , N: AsRef<[u8]>
+        , V: AsRef<[u8]>
 {
-    let startup_message = build_startup_message(parameters);
+    let startup_message = build_startup_message(parameters)?;
     stream.write_all(&startup_message)?;
     drop(startup_message);
 
-    handle_authentication(receiver, stream, md5)?;
+    handle_authentication(md5, receiver, stream)?;
 
     handle_info(receiver, stream)
 }
 
-fn build_startup_message<I, N, V>(parameters: I) -> Vec<u8>
-    where I: IntoIterator<Item = (N, V)>, N: AsRef<str>, V: AsRef<str>
+fn build_startup_message<I, N, V>(parameters: I) -> Result<Vec<u8>>
+    where I: IntoIterator<Item = (N, V)>, N: AsRef<[u8]>, V: AsRef<[u8]>
 {
     let mut buf = vec![0, 0, 0, 0];
 
-    buf.extend_from_slice(&196608u32.to_be_bytes());
+    write_int32_u32(&mut buf, 196608);
 
     for (name, value) in parameters {
-        // XXX: What do we do about interior nuls?
-        buf.extend_from_slice(name.as_ref().as_bytes());
-        buf.push(0);
-        buf.extend_from_slice(value.as_ref().as_bytes());
-        buf.push(0);
+        write_string_slice(&mut buf, name.as_ref())?;
+        write_string_slice(&mut buf, value.as_ref())?;
     }
 
     buf.push(0);
@@ -72,15 +65,15 @@ fn build_startup_message<I, N, V>(parameters: I) -> Vec<u8>
     let length = u32::try_from(buf.len()).unwrap();
     buf[0 .. 4].copy_from_slice(&length.to_be_bytes());
 
-    buf
+    Ok(buf)
 }
 
-fn handle_authentication<S, M>(
+fn handle_authentication<M, S>(
+    md5: &M,
     receiver: &mut Receiver,
     stream: &mut S,
-    md5: &M,
-) -> Result<(), StartupError>
-    where S: Read, M: Md5
+) -> Result<()>
+    where M: Md5, S: Read
 {
     let message = receiver.receive(stream)?;
     match message {
@@ -91,12 +84,12 @@ fn handle_authentication<S, M>(
         BackendMessage::ErrorResponse{..} =>
             todo!("{message:?}"),
         _ =>
-            Err(StartupError::UnexpectedBackendMessage),
+            Err(Error::BackendMessageUnexpected),
     }
 }
 
 fn handle_info<S>(receiver: &mut Receiver, stream: &mut S)
-    -> Result<StartupInfo, StartupError>
+    -> Result<StartupInfo>
     where S: Read
 {
     let mut info = StartupInfo{
@@ -125,7 +118,7 @@ fn handle_info<S>(receiver: &mut Receiver, stream: &mut S)
             BackendMessage::ErrorResponse{..} =>
                 todo!("{message:?}"),
             _ =>
-                return Err(StartupError::UnexpectedBackendMessage),
+                return Err(Error::BackendMessageUnexpected),
         }
     }
 

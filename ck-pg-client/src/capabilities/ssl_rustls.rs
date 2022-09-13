@@ -1,6 +1,7 @@
 use {
+    crate::{Error, Result},
     super::Ssl,
-    rustls::{ClientConfig, ClientConnection, Error, ServerName, StreamOwned},
+    rustls::{ClientConfig, ClientConnection, ServerName, StreamOwned},
     std::{io::{Read, Write}, sync::Arc},
 };
 
@@ -15,15 +16,14 @@ impl<Socket> Ssl<Socket> for SslRustls
 {
     type Stream = StreamOwned<ClientConnection, Socket>;
 
-    type Error = Error;
-
     fn handshake(&self, socket: Socket, server_name: &str)
-        -> Result<Self::Stream, Self::Error>
+        -> Result<Self::Stream>
     {
         let config = self.config.clone();
         let server_name = ServerName::try_from(server_name)
-            .map_err(|err| Error::General(err.to_string()))?;
-        let connection = ClientConnection::new(config, server_name)?;
+            .map_err(|err| Error::SslHandshake(Box::new(err)))?;
+        let connection = ClientConnection::new(config, server_name)
+            .map_err(|err| Error::SslHandshake(Box::new(err)))?;
         Ok(StreamOwned{conn: connection, sock: socket})
     }
 }

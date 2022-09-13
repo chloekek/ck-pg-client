@@ -5,6 +5,8 @@ pub use self::{
     ssl_unavailable::*,
 };
 
+use crate::Result;
+
 #[cfg(feature = "md5")]
 mod md5_md5;
 #[cfg(not(feature = "md5"))]
@@ -35,8 +37,6 @@ pub trait Ssl<Socket>
 {
     type Stream;
 
-    type Error;
-
     fn handshake(&self, socket: Socket, server_name: &str)
-        -> Result<Self::Stream, Self::Error>;
+        -> Result<Self::Stream>;
 }

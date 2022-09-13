@@ -1,12 +1,7 @@
 #![cfg(test)]
 
 use {
-    crate::protocol::{
-        Receiver,
-        SslSessionEncryptionError,
-        ssl_session_encryption,
-        startup,
-    },
+    crate::{Error, protocol::{Receiver, ssl_session_encryption, startup}},
     self::with_cluster::{WithCluster, with_cluster},
     std::{
         assert_matches::assert_matches,
@@ -39,13 +34,13 @@ fn ssl_session_encryption_success()
         let mut stream = ssl.handshake(socket, "localhost").unwrap();
 
         startup(
+            &Md5Unavailable,
             &mut receiver,
             &mut stream,
             [
                 ("user", "postgres"),
                 ("database", "postgres"),
             ],
-            &Md5Unavailable,
         ).unwrap();
 
     });
@@ -58,7 +53,7 @@ fn ssl_session_encryption_server_unwilling()
     with_cluster(options, |_sockets_dir, port| {
         let mut stream = TcpStream::connect(("localhost", port)).unwrap();
         let error = ssl_session_encryption(&mut stream).unwrap_err();
-        assert_matches!(error, SslSessionEncryptionError::ServerUnwilling);
+        assert_matches!(error, Error::SslServerUnwilling);
     });
 }
 
@@ -67,6 +62,6 @@ fn ssl_session_encryption_received_gibberish()
 {
     let mut stream = VecDeque::from(*b"XYZ");
     let result = ssl_session_encryption(&mut stream).unwrap_err();
-    assert_matches!(result, SslSessionEncryptionError::ReceivedGibberish(b'X'));
+    assert_matches!(result, Error::SslRequestGibberish(b'X'));
     assert_eq!(stream, b"YZ\0\0\0\x08\x04\xD2\x16\x2F");
 }

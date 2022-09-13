@@ -13,9 +13,12 @@
 
 #[macro_use] mod pgdoc;
 
+pub use self::error::*;
+
 pub mod capabilities;
 pub mod connectivity;
 pub mod protocol;
 
+mod error;
 mod tests;
 mod usize_conversions;
