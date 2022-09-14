@@ -22,6 +22,13 @@
 //!  - Kerberos V5 authentication.
 //!  - GSSAPI session encryption.
 //!
+//! # Naming conventions
+//!
+//! This crate uses the same names for things that PostgreSQL does,
+//! which makes it easy to cross-reference documentation sections
+//! across the documentation of this crate and PostgreSQL.
+//! (This is why we refer to TLS as SSL, for example.)
+//!
 //! [`Md5`]: `capabilities::Md5`
 //! [`Ssl`]: `capabilities::Ssl`
 //! [Cargo features]: https://doc.rust-lang.org/cargo/reference/features.html
