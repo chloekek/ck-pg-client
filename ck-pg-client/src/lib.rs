@@ -55,7 +55,7 @@ mod tests;
 mod usize_conversions;
 
 /// Open connection to a database.
-pub struct Connection
+pub struct PgClient
 {
     /// Either [`Socket`] or [`Ssl::Stream`].
     transport: Box<dyn Transport>,
@@ -66,7 +66,7 @@ pub struct Connection
 trait Transport: Read + Write + Send { }
 impl<T> Transport for T where T: Read + Write + Send { }
 
-impl Connection
+impl PgClient
 {
     pub fn connect(
         md5: &impl capabilities::Md5,
