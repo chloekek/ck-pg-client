@@ -16,14 +16,19 @@ impl<Socket> Ssl<Socket> for SslRustls
 {
     type Stream = StreamOwned<ClientConnection, Socket>;
 
-    fn handshake(&self, socket: Socket, server_name: &str)
+    fn handshake(&self, mut socket: Socket, server_name: &str)
         -> Result<Self::Stream>
     {
         let config = self.config.clone();
-        let server_name = ServerName::try_from(server_name)
-            .map_err(|err| Error::SslHandshake(Box::new(err)))?;
-        let connection = ClientConnection::new(config, server_name)
-            .map_err(|err| Error::SslHandshake(Box::new(err)))?;
+        let server_name = e(ServerName::try_from(server_name))?;
+        let mut connection = e(ClientConnection::new(config, server_name))?;
+        e(connection.complete_io(&mut socket))?;
         Ok(StreamOwned{conn: connection, sock: socket})
     }
+}
+
+fn e<R, E>(result: std::result::Result<R, E>) -> Result<R>
+    where E: 'static + std::error::Error + Send + Sync
+{
+    result.map_err(|err| Error::SslHandshake(Box::new(err)))
 }
