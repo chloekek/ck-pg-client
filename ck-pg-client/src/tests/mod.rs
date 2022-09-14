@@ -11,7 +11,10 @@ use {
 };
 
 #[cfg(feature = "rustls")]
-use crate::capabilities::{Md5Unavailable, Ssl, SslRustls};
+use crate::{
+    capabilities::{Md5Unavailable, Ssl, SslRustls},
+    connectivity::Socket,
+};
 
 #[cfg(feature = "rustls")]
 mod rustls_util;
@@ -27,7 +30,9 @@ fn ssl_session_encryption_success()
 
         let mut receiver = Receiver::new(|fields| println!("{fields:?}"));
 
-        let mut socket = TcpStream::connect(("localhost", port)).unwrap();
+        let socket = TcpStream::connect(("localhost", port)).unwrap();
+        let mut socket = Socket::from_tcp_stream(socket);
+
         ssl_session_encryption(&mut socket).unwrap();
 
         let ssl = SslRustls{config: rustls_util::rustls_config()};

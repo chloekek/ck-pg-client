@@ -5,7 +5,7 @@ pub use self::{
     ssl_unavailable::*,
 };
 
-use crate::Result;
+use {crate::{Result, connectivity::Socket}, std::io::{Read, Write}};
 
 #[cfg(feature = "md5")]
 mod md5_md5;
@@ -33,9 +33,9 @@ pub trait Md5
     fn md5(&self, plaintext: &[u8]) -> Option<[u8; 16]>;
 }
 
-pub trait Ssl<Socket>
+pub trait Ssl
 {
-    type Stream;
+    type Stream: Read + Write + Send;
 
     fn handshake(&self, socket: Socket, server_name: &str)
         -> Result<Self::Stream>;

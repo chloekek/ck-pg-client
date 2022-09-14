@@ -12,8 +12,7 @@ use {crate::{Error, Result}, std::{io::{Read, Write}, slice}};
 /// or a version of PostgreSQL that predates SSL support).
 ///
 #[doc = crate::pgdoc::ssl_session_encryption!("spec")]
-pub fn ssl_session_encryption<S>(stream: &mut S) -> Result<()>
-    where S: Read + Write
+pub fn ssl_session_encryption(stream: &mut (impl Read + Write)) -> Result<()>
 {
     let ssl_request = [0, 0, 0, 8, 4, 210, 22, 47];
     stream.write_all(&ssl_request)?;

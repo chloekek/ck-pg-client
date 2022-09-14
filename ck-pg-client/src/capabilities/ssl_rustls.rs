@@ -1,5 +1,5 @@
 use {
-    crate::{Error, Result},
+    crate::{Error, Result, connectivity::Socket},
     super::Ssl,
     rustls::{ClientConfig, ClientConnection, ServerName, StreamOwned},
     std::{io::{Read, Write}, sync::Arc},
@@ -11,8 +11,7 @@ pub struct SslRustls
     pub config: Arc<ClientConfig>,
 }
 
-impl<Socket> Ssl<Socket> for SslRustls
-    where Socket: Read + Write
+impl Ssl for SslRustls
 {
     type Stream = StreamOwned<ClientConnection, Socket>;
 

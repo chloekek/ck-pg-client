@@ -41,6 +41,11 @@
 
 pub use self::error::*;
 
+use {
+    crate::{connectivity::Socket, protocol::{ErrorNoticeFieldArray, Receiver}},
+    std::io::{Read, Write},
+};
+
 pub mod capabilities;
 pub mod connectivity;
 pub mod protocol;
@@ -49,59 +54,102 @@ mod error;
 mod tests;
 mod usize_conversions;
 
-pub struct ConnectionBuilder
+/// Open connection to a database.
+pub struct Connection
 {
-    user: Option<Vec<u8>>,
-    database: Option<Vec<u8>>,
-    password: Option<Vec<u8>>,
+    /// Either [`Socket`] or [`Ssl::Stream`].
+    transport: Box<dyn Transport>,
+
+    receiver: Receiver,
 }
 
-impl ConnectionBuilder
-{
-    /// Create a builder with all settings missing.
-    pub fn new() -> Self
-    {
-        Self{user: None, database: None, password: None}
-    }
+trait Transport: Read + Write + Send { }
+impl<T> Transport for T where T: Read + Write + Send { }
 
+impl Connection
+{
+    pub fn connect(
+        md5: &impl capabilities::Md5,
+        ssl: &impl capabilities::Ssl,
+        on_notice: impl 'static + FnMut(ErrorNoticeFieldArray) + Send,
+        options: &ConnectionOptions,
+    ) -> Result<Self>
+    {
+        let transport: Socket = todo!();
+
+        let transport: Box<dyn Transport> =
+            match options.sslmode {
+                Sslmode::Disable =>
+                    Box::new(transport),
+                Sslmode::Require => {
+                    protocol::ssl_session_encryption(&mut transport)?;
+                    let ssl_stream = ssl.handshake(transport, todo!())?;
+                    Box::new(ssl_stream)
+                }
+            };
+
+        let mut receiver = Receiver::new(on_notice);
+
+        protocol::startup(
+            md5,
+            &mut receiver,
+            &mut transport,
+            &options.user,
+            &options.dbname,
+        )?;
+
+        Ok(Self{transport, receiver})
+    }
+}
+
+/// Options describing a database connection.
+pub struct ConnectionOptions
+{
+    /// The database name.
+    ///
+    /// Technically, this is the `database` parameter
+    /// included in the `StartupMessage` message.
+    pub dbname: Vec<u8>,
+
+    /// PostgreSQL user name to connect as.
+    ///
+    /// Technically, this is the `user` parameter
+    /// included in the `StartupMessage` message.
+    pub user: Vec<u8>,
+
+    /// Password to be used if the server demands password authentication.
+    pub password: Option<Vec<u8>>,
+
+    /// Whether to use plaintext or SSL encrypted communication.
+    ///
+    /// This fulfills the same purpose as the [`sslmode`] parameter in libpq,
+    /// but is more direct: you must specify whether you want SSL or not.
+    /// [`a_la_libpq`] only accepts `disable` and `require` for [`sslmode`];
+    /// other values produce an error so the caller must disambiguate them.
+    /// The certificate verification requirements are up to [`Ssl::handshake`].
+    ///
+    /// [`a_la_libpq`]: `Self::a_la_libpq`
+    /// [`Ssl::handshake`]: `capabilities::Ssl::handshake`
+    #[doc = crate::pgdoc::sslmode!("`sslmode`")]
+    pub sslmode: Sslmode,
+}
+
+pub enum Sslmode
+{
+    Disable,
+    Require,
+}
+
+impl ConnectionOptions
+{
     /// Parse a libpq connection string.
     ///
     /// This replicates the behavior of the [libpq] library,
     /// including the use of the `PG*` environment variables.
-    /// Existing connection builder settings are overwritten;
-    /// set them after calling this method if you want them to take precedence.
     ///
     #[doc = crate::pgdoc::connection_strings!("libpq")]
-    pub fn libpq_dsn(&mut self, _dsn: &str, todo: !) -> Result<Self>
+    pub fn a_la_libpq(_connection_string: &str, todo: !) -> Result<Self>
     {
         todo
-    }
-
-    /// Connect as the specified database user.
-    ///
-    /// This parameter is required; if you do not set it, connecting will fail.
-    pub fn user(&mut self, user: impl Into<Vec<u8>>) -> &mut Self
-    {
-        self.user = Some(user.into());
-        self
-    }
-
-    /// Connect to the specified database.
-    ///
-    /// If not specified, the database named after the user is connected to.
-    pub fn database(&mut self, database: impl Into<Vec<u8>>) -> &mut Self
-    {
-        self.database = Some(database.into());
-        self
-    }
-
-    /// Authenticate using the specified password.
-    ///
-    /// If not specified, authentication will
-    /// fail if the server requires a password.
-    pub fn password(&mut self, password: impl Into<Vec<u8>>) -> &mut Self
-    {
-        self.password = Some(password.into());
-        self
     }
 }
