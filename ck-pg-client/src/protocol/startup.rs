@@ -24,22 +24,18 @@ pub struct StartupInfo
 /// Implementation of the [_Start-up_][spec] flow.
 ///
 /// No data must be sent on the stream prior to calling this function.
-/// The `parameters` argument specifies `StartupMessage` parameters.
+/// The `user` and `database` arguments specify `StartupMessage` parameters.
 ///
 #[doc = crate::pgdoc::startup!("spec")]
-pub fn startup<M, S, I, N, V>(
-    md5: &M,
+pub fn startup(
+    md5: &impl Md5,
     receiver: &mut Receiver,
-    stream: &mut S,
-    parameters: I,
+    stream: &mut (impl Read + Write),
+    user: &[u8],
+    database: &[u8],
 ) -> Result<StartupInfo>
-    where M: Md5
-        , S: Read + Write
-        , I: IntoIterator<Item = (N, V)>
-        , N: AsRef<[u8]>
-        , V: AsRef<[u8]>
 {
-    let startup_message = build_startup_message(parameters)?;
+    let startup_message = build_startup_message(user, database)?;
     stream.write_all(&startup_message)?;
     drop(startup_message);
 
@@ -48,17 +44,17 @@ pub fn startup<M, S, I, N, V>(
     handle_info(receiver, stream)
 }
 
-fn build_startup_message<I, N, V>(parameters: I) -> Result<Vec<u8>>
-    where I: IntoIterator<Item = (N, V)>, N: AsRef<[u8]>, V: AsRef<[u8]>
+fn build_startup_message(user: &[u8], database: &[u8]) -> Result<Vec<u8>>
 {
     let mut buf = vec![0, 0, 0, 0];
 
     write_int32_u32(&mut buf, 196608);
 
-    for (name, value) in parameters {
-        write_string_slice(&mut buf, name.as_ref())?;
-        write_string_slice(&mut buf, value.as_ref())?;
-    }
+    write_string_slice(&mut buf, b"user")?;
+    write_string_slice(&mut buf, user)?;
+
+    write_string_slice(&mut buf, b"database")?;
+    write_string_slice(&mut buf, database)?;
 
     buf.push(0);
 
@@ -68,12 +64,11 @@ fn build_startup_message<I, N, V>(parameters: I) -> Result<Vec<u8>>
     Ok(buf)
 }
 
-fn handle_authentication<M, S>(
-    md5: &M,
+fn handle_authentication(
+    md5: &impl Md5,
     receiver: &mut Receiver,
-    stream: &mut S,
+    stream: &mut impl Read,
 ) -> Result<()>
-    where M: Md5, S: Read
 {
     let message = receiver.receive(stream)?;
     match message {

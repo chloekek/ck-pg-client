@@ -37,10 +37,8 @@ fn ssl_session_encryption_success()
             &Md5Unavailable,
             &mut receiver,
             &mut stream,
-            [
-                ("user", "postgres"),
-                ("database", "postgres"),
-            ],
+            b"postgres",
+            b"postgres",
         ).unwrap();
 
     });
