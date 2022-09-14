@@ -19,6 +19,7 @@ macro_rules! pgdoc
     };
 }
 
+pgdoc!(connection_strings, "/libpq-connect.html#LIBPQ-CONNSTRING");
 pgdoc!(frontend_backend_protocol, "/protocol.html");
 pgdoc!(guc_unix_socket_directories, "/runtime-config-connection.html#GUC-UNIX-SOCKET-DIRECTORIES");
 pgdoc!(password_authentication, "/auth-password.html");

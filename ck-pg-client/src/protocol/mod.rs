@@ -12,11 +12,12 @@
 
 pub use self::{
     backend_message::*,
-    frontend_message::*,
     receiver::*,
     ssl_session_encryption::*,
     startup::*,
 };
+
+use self::frontend_message::*;
 
 mod backend_message;
 mod frontend_message;
