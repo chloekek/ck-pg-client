@@ -35,7 +35,7 @@ pub trait Md5
 
 pub trait Ssl
 {
-    type Stream: Read + Write + Send;
+    type Stream: 'static + Read + Write + Send;
 
     fn handshake(&self, socket: Socket, server_name: &str)
         -> Result<Self::Stream>;

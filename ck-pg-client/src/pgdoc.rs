@@ -22,6 +22,7 @@ macro_rules! pgdoc
 pgdoc!(connection_strings, "/libpq-connect.html#LIBPQ-CONNSTRING");
 pgdoc!(frontend_backend_protocol, "/protocol.html");
 pgdoc!(guc_unix_socket_directories, "/runtime-config-connection.html#GUC-UNIX-SOCKET-DIRECTORIES");
+pgdoc!(hostaddr, "/libpq-connect.html#LIBPQ-CONNECT-HOSTADDR");
 pgdoc!(password_authentication, "/auth-password.html");
 pgdoc!(ssl_session_encryption, "/protocol-flow.html#id-1.10.5.7.12");
 pgdoc!(sslmode, "/libpq-connect.html#LIBPQ-CONNECT-SSLMODE");

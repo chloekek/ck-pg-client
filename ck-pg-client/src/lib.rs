@@ -38,6 +38,7 @@
 
 #![feature(cstr_from_bytes_until_nul)]
 #![feature(never_type)]
+#![feature(unix_socket_abstract)]
 
 #![cfg_attr(test, feature(assert_matches))]
 #![cfg_attr(test, feature(exit_status_error))]
@@ -49,7 +50,10 @@
 pub use self::error::*;
 
 use {
-    crate::{connectivity::Socket, protocol::{ErrorNoticeFieldArray, Receiver}},
+    crate::{
+        connectivity::{Socket, unix_socket_path},
+        protocol::{ErrorNoticeFieldArray, Receiver},
+    },
     std::io::{Read, Write},
 };
 
@@ -82,15 +86,15 @@ impl PgClient
         options: &ConnectionOptions,
     ) -> Result<Self>
     {
-        let transport: Socket = todo!();
+        let mut transport = Socket::connect(&options.host, options.port)?;
 
-        let transport: Box<dyn Transport> =
+        let mut transport: Box<dyn Transport> =
             match options.sslmode {
                 Sslmode::Disable =>
                     Box::new(transport),
                 Sslmode::Require => {
                     protocol::ssl_session_encryption(&mut transport)?;
-                    let ssl_stream = ssl.handshake(transport, todo!())?;
+                    let ssl_stream = ssl.handshake(transport, &options.host)?;
                     Box::new(ssl_stream)
                 }
             };
@@ -112,6 +116,20 @@ impl PgClient
 /// Options describing a database connection.
 pub struct ConnectionOptions
 {
+    /// Name of host to connect to.
+    ///
+    /// Unlike libpq, this does not permit specifying more than one host.
+    /// There is also no equivalent of [`hostaddr`]; use `host` instead.
+    ///
+    #[doc = crate::pgdoc::hostaddr!("`hostaddr`")]
+    pub host: String,
+
+    /// Port number to connect to at the server host,
+    /// or socket file name extension for Unix-domain connections.
+    ///
+    /// Unlike libpq, this does not permit specifying more than one port.
+    pub port: u16,
+
     /// The database name.
     ///
     /// Technically, this is the `database` parameter

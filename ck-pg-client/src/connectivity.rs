@@ -1,13 +1,16 @@
 //! Connecting to PostgreSQL databases.
 
-use std::{
-    io::{self, IoSlice, IoSliceMut, Read, Write},
-    net::TcpStream,
-    path::{Path, PathBuf},
+use {
+    crate::Result,
+    std::{
+        io::{self, IoSlice, IoSliceMut, Read, Write},
+        net::TcpStream,
+        path::{Path, PathBuf},
+    },
 };
 
 #[cfg(unix)]
-use std::{fs::File, os::unix::{io::OwnedFd, net::UnixStream}};
+use std::{fs::File, os::unix::{io::OwnedFd, net::{SocketAddr, UnixStream}}};
 
 /// The port on which PostgreSQL listens by default.
 pub const DEFAULT_PORT: u16 = 5432;
@@ -50,6 +53,34 @@ impl Socket
     pub fn from_unix_stream(unix: UnixStream) -> Self
     {
         Self(File::from(OwnedFd::from(unix)))
+    }
+
+    pub fn connect(host: &str, port: u16) -> Result<Self>
+    {
+        #[cfg(unix)]
+        if host.is_empty() {
+            let path = unix_socket_path(Path::new("/tmp"), port);
+            let socket = UnixStream::connect(path)?;
+            return Ok(Self::from_unix_stream(socket));
+        }
+
+        #[cfg(unix)]
+        if host.starts_with("/") {
+            let path = unix_socket_path(Path::new(host), port);
+            let socket = UnixStream::connect(path)?;
+            return Ok(Self::from_unix_stream(socket));
+        }
+
+        #[cfg(unix)]
+        if host.starts_with("@") {
+            let name = &host.as_bytes()[1 ..];
+            let addr = SocketAddr::from_abstract_namespace(name)?;
+            let socket = UnixStream::connect_addr(&addr)?;
+            return Ok(Self::from_unix_stream(socket));
+        }
+
+        let socket = TcpStream::connect((host, port))?;
+        Ok(Socket::from_tcp_stream(socket))
     }
 }
 

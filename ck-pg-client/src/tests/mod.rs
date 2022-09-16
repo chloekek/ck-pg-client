@@ -1,20 +1,20 @@
 #![cfg(test)]
 
 use {
-    crate::{Error, protocol::{Receiver, ssl_session_encryption, startup}},
-    self::with_cluster::{WithCluster, with_cluster},
-    std::{
-        assert_matches::assert_matches,
-        collections::VecDeque,
-        net::TcpStream,
+    crate::{
+        ConnectionOptions,
+        Error,
+        PgClient,
+        Sslmode,
+        capabilities::{Md5Unavailable, SslUnavailable},
+        protocol::ssl_session_encryption,
     },
+    self::with_cluster::{WithCluster, with_cluster},
+    std::{assert_matches::assert_matches, collections::VecDeque},
 };
 
 #[cfg(feature = "rustls")]
-use crate::{
-    capabilities::{Md5Unavailable, Ssl, SslRustls},
-    connectivity::Socket,
-};
+use crate::capabilities::SslRustls;
 
 #[cfg(feature = "rustls")]
 mod rustls_util;
@@ -23,40 +23,54 @@ mod with_cluster;
 
 #[cfg(feature = "rustls")]
 #[test]
-fn ssl_session_encryption_success()
+fn connect_ssl_required_success()
 {
     let options = WithCluster{enable_ssl: true};
     with_cluster(options, |_sockets_dir, port| {
 
-        let mut receiver = Receiver::new(|fields| println!("{fields:?}"));
+        let options = ConnectionOptions{
+            host: "localhost".into(),
+            port,
+            dbname: "postgres".into(),
+            user: "postgres".into(),
+            password: None,
+            sslmode: Sslmode::Require,
+        };
 
-        let socket = TcpStream::connect(("localhost", port)).unwrap();
-        let mut socket = Socket::from_tcp_stream(socket);
-
-        ssl_session_encryption(&mut socket).unwrap();
-
-        let ssl = SslRustls{config: rustls_util::rustls_config()};
-        let mut stream = ssl.handshake(socket, "localhost").unwrap();
-
-        startup(
+        PgClient::connect(
             &Md5Unavailable,
-            &mut receiver,
-            &mut stream,
-            b"postgres",
-            b"postgres",
+            &SslRustls{config: rustls_util::rustls_config()},
+            |notice| println!("{notice:?}"),
+            &options,
         ).unwrap();
 
     });
 }
 
 #[test]
-fn ssl_session_encryption_server_unwilling()
+fn connect_ssl_required_server_unwilling()
 {
     let options = WithCluster{enable_ssl: false};
     with_cluster(options, |_sockets_dir, port| {
-        let mut stream = TcpStream::connect(("localhost", port)).unwrap();
-        let error = ssl_session_encryption(&mut stream).unwrap_err();
+
+        let options = ConnectionOptions{
+            host: "localhost".into(),
+            port,
+            dbname: "postgres".into(),
+            user: "postgres".into(),
+            password: None,
+            sslmode: Sslmode::Require,
+        };
+
+        let error = PgClient::connect(
+            &Md5Unavailable,
+            &SslUnavailable,
+            |notice| println!("{notice:?}"),
+            &options,
+        ).map(|_| ()).unwrap_err();
+
         assert_matches!(error, Error::SslServerUnwilling);
+
     });
 }
 
